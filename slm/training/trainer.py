@@ -95,7 +95,7 @@ class EmilyTrainer:
         # AMP (automatic mixed precision)
         self.use_amp = self.train_cfg.use_amp and self.device.type == "cuda"
         self.amp_dtype = get_dtype(self.train_cfg.amp_dtype)
-        self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp and self.amp_dtype == torch.float16)
+        self.scaler = torch.amp.GradScaler('cuda', enabled=self.use_amp and self.amp_dtype == torch.float16)
 
         # Collator and data loaders
         pad_token_id: int = 0  # default fallback
@@ -105,14 +105,15 @@ class EmilyTrainer:
             pad_token_id = getattr(config.tokenizer, "pad_token_id", 0)
         self.collator = CausalLMCollator(pad_token_id=pad_token_id, max_length=config.dataset.max_seq_len)
 
+        # Use drop_last=False so small datasets are never silently emptied
         self.train_loader = DataLoader(
             train_dataset,
-            batch_size=self.train_cfg.batch_size,
+            batch_size=min(self.train_cfg.batch_size, len(train_dataset)),
             shuffle=True,
             num_workers=config.dataset.num_workers,
             pin_memory=config.dataset.pin_memory,
             collate_fn=self.collator,
-            drop_last=True,
+            drop_last=False,
         )
         self.val_loader: Optional[DataLoader] = None
         if val_dataset is not None:
@@ -214,12 +215,16 @@ class EmilyTrainer:
         self.optimizer.zero_grad()
 
         while self.global_step < cfg.max_steps:
-            # Fetch next batch (reset iterator if exhausted)
+            # Fetch next batch — reset iterator safely when epoch ends
             try:
                 batch = next(train_iter)
             except StopIteration:
                 train_iter = iter(self.train_loader)
-                batch = next(train_iter)
+                try:
+                    batch = next(train_iter)
+                except StopIteration:
+                    logger.error("DataLoader is empty — check dataset size and batch_size")
+                    break
 
             input_ids = batch["input_ids"].to(self.device)
             labels = batch["labels"].to(self.device)

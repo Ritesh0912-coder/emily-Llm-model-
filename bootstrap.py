@@ -352,7 +352,7 @@ def prepare():
     raw_text = (DATA_RAW / "corpus.txt").read_text(encoding="utf-8")
     paragraphs = [p.strip() for p in raw_text.split("\n") if p.strip()]
 
-    pp = TextPreprocessor(min_length=5, dedup=True)
+    pp = TextPreprocessor(min_length=5, dedup=False)
     texts = pp.process(paragraphs)
     print(f"    {len(texts):,} text segments after preprocessing")
 
