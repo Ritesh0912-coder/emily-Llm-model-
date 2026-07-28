@@ -1,0 +1,5 @@
+[console_scripts]
+emily-chat = slm.cli.main:chat
+emily-eval = slm.cli.main:evaluate
+emily-prepare = slm.cli.main:prepare_data
+emily-train = slm.cli.main:train

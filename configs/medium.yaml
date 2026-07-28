@@ -1,0 +1,61 @@
+# Emily SLM — Medium Configuration
+# ~117M parameters | 12 layers | 768 hidden | 12 heads (GPT-2 scale)
+# Purpose: Production-quality conversational model (40GB+ VRAM or multi-GPU)
+
+model:
+  name: emily-medium
+  vocab_size: 32000
+  context_length: 2048
+  d_model: 768
+  n_heads: 12
+  n_kv_heads: 4          # GQA: 4 KV heads, 12 query heads
+  n_layers: 12
+  d_ff: 3072             # 4 * d_model
+  dropout: 0.1
+  attention_type: flash   # Flash Attention required for this size
+  tie_embeddings: true
+  use_rms_norm: true
+  use_swiglu: true
+  use_rope: true
+  rope_base: 10000
+  max_seq_len: 2048
+
+tokenizer:
+  model_type: bpe
+  vocab_size: 32000
+  model_path: checkpoints/emily-medium/tokenizer.json
+  pad_token: "<|pad|>"
+  eos_token: "<|eos|>"
+  bos_token: "<|bos|>"
+  unk_token: "<|unk|>"
+
+training:
+  batch_size: 16
+  gradient_accumulation_steps: 8
+  max_steps: 200000
+  eval_interval: 5000
+  save_interval: 10000
+  log_interval: 200
+  learning_rate: 1.0e-4
+  min_lr: 1.0e-5
+  warmup_steps: 5000
+  weight_decay: 0.1
+  max_grad_norm: 1.0
+  optimizer: adamw
+  scheduler: cosine
+  use_amp: true
+  amp_dtype: bfloat16
+  seed: 42
+  compile: true
+  checkpoint_dir: checkpoints/emily-medium
+  log_dir: logs/emily-medium
+  wandb_project: emily-slm
+  wandb_run_name: emily-medium
+  wandb_enabled: false
+
+dataset:
+  train_path: datasets/tokenized/train.bin
+  val_path: datasets/tokenized/val.bin
+  max_seq_len: 2048
+  num_workers: 8
+  pin_memory: true

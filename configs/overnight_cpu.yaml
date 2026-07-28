@@ -1,0 +1,58 @@
+# Emily SLM — Overnight CPU Configuration
+# Optimised for multi-hour CPU training on Windows
+# ~4M parameters | Trains to coherent English overnight
+# Expected: 3000 steps, ~6-10 hours on CPU
+
+model:
+  name: emily-small
+  vocab_size: 4096
+  context_length: 256       # longer context = better coherence
+  d_model: 256              # 2x bigger hidden dim
+  n_heads: 4
+  n_kv_heads: 4
+  n_layers: 4               # 2x more layers
+  d_ff: 1024
+  dropout: 0.1              # slight dropout to regularize
+  attention_type: standard
+  tie_embeddings: true
+  use_rms_norm: true
+  use_swiglu: true
+  use_rope: true
+  rope_base: 10000
+  max_seq_len: 256
+
+tokenizer:
+  model_type: bpe
+  vocab_size: 4096
+  model_path: checkpoints/emily-small/tokenizer.json
+
+training:
+  batch_size: 4
+  gradient_accumulation_steps: 8   # effective batch = 32
+  max_steps: 3000
+  eval_interval: 250
+  save_interval: 500
+  log_interval: 25
+  learning_rate: 2.0e-4
+  min_lr: 2.0e-5
+  warmup_steps: 200
+  weight_decay: 0.1
+  max_grad_norm: 1.0
+  optimizer: adamw
+  scheduler: cosine
+  use_amp: false            # CPU — no AMP
+  amp_dtype: float32
+  seed: 42
+  compile: false
+  checkpoint_dir: checkpoints/emily-small
+  log_dir: logs/emily-small
+  wandb_project: emily-slm
+  wandb_run_name: emily-small-overnight
+  wandb_enabled: false
+
+dataset:
+  train_path: datasets/tokenized/train.bin
+  val_path: datasets/tokenized/val.bin
+  max_seq_len: 256
+  num_workers: 0            # Windows — must be 0
+  pin_memory: false         # CPU — no pin_memory

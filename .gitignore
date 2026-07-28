@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyTorch checkpoints and models
+checkpoints/
+*.pt
+*.bin
+
+# Next.js build and development files
+emily-ui/.next/
+emily-ui/node_modules/
+emily-ui/out/
+emily-ui/build/
+
+# Local logs
+logs/
+*.log
+
+# Environments
+.env
+.venv
+venv/
+ENV/
+env/

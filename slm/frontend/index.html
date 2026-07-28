@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Emily SLM — AI Studio</title>
+  <meta name="description" content="Emily SLM — Custom GPT-style language model. Chat, generate text, and explore your model." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Tokens ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0a0b0f;
+      --bg2:         #111318;
+      --bg3:         #181b23;
+      --surface:     #1e2130;
+      --surface2:    #252a3a;
+      --border:      rgba(255,255,255,0.07);
+      --border2:     rgba(255,255,255,0.12);
+      --primary:     #7c6fef;
+      --primary-g:   linear-gradient(135deg,#7c6fef,#a78bfa);
+      --accent:      #06b6d4;
+      --accent2:     #f472b6;
+      --success:     #34d399;
+      --warning:     #fbbf24;
+      --danger:      #f87171;
+      --text:        #e2e8f0;
+      --text2:       #94a3b8;
+      --text3:       #64748b;
+      --radius:      14px;
+      --shadow:      0 8px 40px rgba(0,0,0,0.5);
+      --glow:        0 0 30px rgba(124,111,239,0.25);
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Scrollbar ──────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 24px;
+      height: 62px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 18px; font-weight: 700; letter-spacing: -0.3px;
+    }
+    .logo-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--primary-g);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; box-shadow: var(--glow);
+    }
+    .logo span { background: var(--primary-g); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+    .status-pill {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 500;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 20px; padding: 4px 12px;
+      color: var(--text2); margin-left: 4px;
+    }
+    .status-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--text3); flex-shrink: 0;
+      transition: background .3s;
+    }
+    .status-dot.online { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .status-dot.error  { background: var(--danger);  box-shadow: 0 0 6px var(--danger);  }
+
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .api-url { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text3); }
+
+    .btn-sm {
+      font-family: 'Inter', sans-serif;
+      font-size: 12px; font-weight: 500;
+      padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer;
+      background: var(--surface2); color: var(--text2);
+      transition: all .2s;
+    }
+    .btn-sm:hover { background: var(--primary); color: #fff; }
+
+    /* ── Tabs ───────────────────────────────────────────────── */
+    .tabs {
+      display: flex; align-items: center; gap: 4px;
+      padding: 0 24px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .tab {
+      padding: 10px 18px; font-size: 13px; font-weight: 500;
+      color: var(--text3); cursor: pointer; border: none; background: none;
+      border-bottom: 2px solid transparent;
+      transition: all .2s; display: flex; align-items: center; gap: 6px;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* ── Layout ─────────────────────────────────────────────── */
+    .workspace {
+      flex: 1; display: flex; overflow: hidden;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────── */
+    .sidebar {
+      width: 260px; flex-shrink: 0;
+      background: var(--bg2); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow-y: auto;
+      padding: 16px;
+      gap: 20px;
+    }
+
+    .sidebar-section h4 {
+      font-size: 10px; font-weight: 600; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--text3);
+      margin-bottom: 10px;
+    }
+
+    .param-group { display: flex; flex-direction: column; gap: 12px; }
+
+    .param label {
+      display: flex; justify-content: space-between;
+      font-size: 12px; color: var(--text2); margin-bottom: 6px;
+    }
+    .param label span { color: var(--primary); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+
+    input[type=range] {
+      width: 100%; accent-color: var(--primary);
+      height: 4px; cursor: pointer;
+    }
+
+    .param-input {
+      width: 100%; background: var(--bg3); border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px; padding: 7px 10px;
+      font-size: 12px; font-family: 'Inter', sans-serif;
+      outline: none; transition: border .2s;
+    }
+    .param-input:focus { border-color: var(--primary); }
+
+    select.param-input { cursor: pointer; }
+
+    .divider {
+      height: 1px; background: var(--border); margin: 4px 0;
+    }
+
+    /* Model info card */
+    .model-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px;
+    }
+    .model-card .model-name {
+      font-size: 13px; font-weight: 600; color: var(--primary);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .model-stats { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
+    .model-stat {
+      display: flex; justify-content: space-between;
+      font-size: 11px; color: var(--text3);
+    }
+    .model-stat span:last-child { color: var(--text2); font-weight: 500; font-family: 'JetBrains Mono', monospace; }
+
+    /* ── Main Panel ──────────────────────────────────────────── */
+    .panel {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    /* ── CHAT PANEL ──────────────────────────────────────────── */
+    .chat-panel { display: flex; flex-direction: column; height: 100%; }
+
+    .chat-messages {
+      flex: 1; overflow-y: auto; padding: 24px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+
+    .msg { display: flex; gap: 12px; animation: fadeUp .3s ease; max-width: 100%; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg.user { flex-direction: row-reverse; }
+
+    .avatar {
+      width: 34px; height: 34px; border-radius: 10px;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 700;
+    }
+    .avatar.emily {
+      background: var(--primary-g); box-shadow: var(--glow);
+    }
+    .avatar.user {
+      background: linear-gradient(135deg,#0ea5e9,#06b6d4);
+    }
+
+    .bubble {
+      max-width: 72%; padding: 12px 16px; border-radius: 14px;
+      font-size: 14px; line-height: 1.65; position: relative;
+    }
+    .msg.emily .bubble {
+      background: var(--surface); border: 1px solid var(--border);
+      border-top-left-radius: 4px;
+    }
+    .msg.user .bubble {
+      background: linear-gradient(135deg,#4f46e5,#7c6fef);
+      border-top-right-radius: 4px; color: #fff;
+    }
+
+    .bubble .time {
+      font-size: 10px; color: var(--text3); margin-top: 6px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .msg.user .bubble .time { color: rgba(255,255,255,0.5); text-align: right; }
+
+    .typing-indicator { display: flex; gap: 4px; padding: 4px 0; }
+    .typing-indicator span {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary); opacity: 0.4;
+      animation: bounce 1s infinite;
+    }
+    .typing-indicator span:nth-child(2) { animation-delay: .15s; }
+    .typing-indicator span:nth-child(3) { animation-delay: .30s; }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); opacity:.4; }
+      50%       { transform: translateY(-5px); opacity:1; }
+    }
+
+    .chat-input-bar {
+      padding: 16px 24px; background: var(--bg2);
+      border-top: 1px solid var(--border);
+      display: flex; gap: 10px; align-items: flex-end;
+    }
+
+    .chat-input-wrap { flex: 1; position: relative; }
+
+    textarea#chatInput {
+      width: 100%; background: var(--bg3);
+      border: 1px solid var(--border2); color: var(--text);
+      border-radius: 12px; padding: 12px 50px 12px 16px;
+      font-family: 'Inter', sans-serif; font-size: 14px;
+      line-height: 1.5; resize: none; outline: none;
+      max-height: 140px; min-height: 48px;
+      transition: border .2s;
+    }
+    textarea#chatInput:focus { border-color: var(--primary); }
+    textarea#chatInput::placeholder { color: var(--text3); }
+
+    .send-btn {
+      position: absolute; right: 10px; bottom: 10px;
+      width: 30px; height: 30px; border-radius: 8px;
+      background: var(--primary-g); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 14px;
+      transition: transform .15s, opacity .15s;
+      box-shadow: var(--glow);
+    }
+    .send-btn:hover { transform: scale(1.08); }
+    .send-btn:active { transform: scale(0.95); }
+    .send-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+    .chat-actions { display: flex; gap: 6px; }
+    .action-btn {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text2); border-radius: 8px; padding: 8px 12px;
+      font-size: 12px; cursor: pointer; font-family: 'Inter', sans-serif;
+      transition: all .2s; display: flex; align-items: center; gap: 5px;
+    }
+    .action-btn:hover { background: var(--surface2); color: var(--text); border-color: var(--border2); }
+
+    /* ── GENERATE PANEL ──────────────────────────────────────── */
+    .generate-panel {
+      flex: 1; display: grid;
+      grid-template-columns: 1fr 1fr; grid-template-rows: 1fr auto;
+      gap: 16px; padding: 20px; overflow: hidden;
+    }
+
+    .gen-box {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .gen-box-header {
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      font-size: 12px; font-weight: 600; color: var(--text2);
+      letter-spacing: .5px; display: flex; align-items: center; gap: 8px;
+    }
+    .gen-box-body { flex: 1; overflow: auto; }
+
+    textarea.gen-textarea {
+      width: 100%; height: 100%; background: transparent;
+      border: none; color: var(--text); padding: 16px;
+      font-family: 'Inter', sans-serif; font-size: 14px;
+      line-height: 1.7; resize: none; outline: none;
+    }
+    textarea.gen-textarea::placeholder { color: var(--text3); }
+
+    .gen-output {
+      padding: 16px; font-size: 14px; line-height: 1.7;
+      color: var(--text); white-space: pre-wrap;
+      word-break: break-word; min-height: 100%;
+    }
+    .gen-output .prompt-part { color: var(--text3); }
+    .gen-output .gen-part { color: var(--accent); }
+
+    .gen-footer {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    .btn-primary {
+      background: var(--primary-g); color: #fff; border: none;
+      border-radius: 10px; padding: 12px 28px; font-size: 14px;
+      font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif;
+      box-shadow: var(--glow); transition: all .2s;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 40px rgba(124,111,239,.4); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    .gen-stats {
+      margin-left: auto; display: flex; gap: 16px;
+      font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text3);
+    }
+    .gen-stat { display: flex; gap: 5px; }
+    .gen-stat span:last-child { color: var(--accent); }
+
+    /* ── TOKENIZE PANEL ──────────────────────────────────────── */
+    .tokenize-panel { flex: 1; display: flex; flex-direction: column; padding: 20px; gap: 16px; overflow: hidden; }
+
+    .tok-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; overflow: hidden; }
+    .tok-box { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden; }
+
+    .tok-tokens {
+      padding: 16px; display: flex; flex-wrap: wrap; gap: 6px;
+      overflow-y: auto; flex: 1;
+    }
+    .token-chip {
+      background: var(--surface2); border: 1px solid var(--border2);
+      border-radius: 6px; padding: 3px 8px; font-size: 12px;
+      font-family: 'JetBrains Mono', monospace; cursor: default;
+      transition: all .15s; position: relative;
+    }
+    .token-chip:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    .tok-ids-scroll { flex: 1; overflow-y: auto; padding: 16px; }
+    .tok-ids-text {
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      line-height: 1.8; color: var(--accent); word-break: break-all;
+    }
+
+    .tok-input-row { display: flex; gap: 10px; }
+    .tok-input {
+      flex: 1; background: var(--bg3); border: 1px solid var(--border2);
+      color: var(--text); border-radius: 10px; padding: 10px 14px;
+      font-family: 'Inter', sans-serif; font-size: 14px; outline: none;
+      transition: border .2s;
+    }
+    .tok-input:focus { border-color: var(--primary); }
+
+    /* ── INFO PANEL ──────────────────────────────────────────── */
+    .info-panel { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+
+    .info-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px;
+      transition: border-color .2s;
+    }
+    .info-card:hover { border-color: var(--primary); }
+    .info-card .card-icon { font-size: 24px; margin-bottom: 10px; }
+    .info-card .card-label { font-size: 11px; color: var(--text3); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+    .info-card .card-value { font-size: 24px; font-weight: 700; color: var(--text); font-family: 'JetBrains Mono', monospace; }
+    .info-card .card-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+    .info-section-title {
+      font-size: 14px; font-weight: 600; color: var(--text2);
+      margin-bottom: 4px; display: flex; align-items: center; gap: 8px;
+    }
+
+    table.info-table {
+      width: 100%; border-collapse: collapse;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      font-size: 13px;
+    }
+    table.info-table th {
+      text-align: left; padding: 10px 16px;
+      background: var(--bg3); color: var(--text3);
+      font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .8px;
+      border-bottom: 1px solid var(--border);
+    }
+    table.info-table td {
+      padding: 10px 16px; border-bottom: 1px solid var(--border);
+      color: var(--text2);
+    }
+    table.info-table tr:last-child td { border-bottom: none; }
+    table.info-table td:last-child { color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+    table.info-table tr:hover td { background: rgba(124,111,239,0.04); }
+
+    /* ── Toast ───────────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 999;
+      background: var(--surface2); border: 1px solid var(--border2);
+      color: var(--text); border-radius: 10px; padding: 12px 18px;
+      font-size: 13px; box-shadow: var(--shadow);
+      transform: translateY(80px); opacity: 0;
+      transition: all .3s; pointer-events: none;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+
+    /* ── Responsive helpers ──────────────────────────────────── */
+    .hidden { display: none !important; }
+    .tag {
+      font-size: 10px; font-weight: 600; padding: 2px 7px;
+      border-radius: 4px; letter-spacing: .5px;
+    }
+    .tag.blue  { background: rgba(6,182,212,.15); color: var(--accent); }
+    .tag.green { background: rgba(52,211,153,.15); color: var(--success); }
+    .tag.purple { background: rgba(124,111,239,.15); color: var(--primary); }
+  </style>
+</head>
+
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🧠</div>
+    <span>Emily SLM</span>
+    <small style="color:var(--text3);font-weight:400;font-size:12px;margin-left:2px;">Studio</small>
+  </div>
+
+  <div class="status-pill">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Connecting…</span>
+  </div>
+
+  <div class="header-right">
+    <span class="api-url" id="apiUrlDisplay">localhost:8001</span>
+    <button class="btn-sm" onclick="checkHealth()">⟳ Ping</button>
+  </div>
+</header>
+
+<!-- ── Tabs ────────────────────────────────────────────────── -->
+<div class="tabs">
+  <button class="tab active" id="tab-chat"     onclick="switchTab('chat')">    💬 Chat</button>
+  <button class="tab"        id="tab-generate" onclick="switchTab('generate')">⚡ Generate</button>
+  <button class="tab"        id="tab-tokenize" onclick="switchTab('tokenize')">🔤 Tokenize</button>
+  <button class="tab"        id="tab-info"     onclick="switchTab('info')">    ℹ️  Model Info</button>
+</div>
+
+<!-- ── Workspace ───────────────────────────────────────────── -->
+<div class="workspace">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+
+    <!-- Model Card -->
+    <div class="sidebar-section">
+      <h4>Model</h4>
+      <div class="model-card">
+        <div class="model-name">🧠 <span id="sbModelName">Loading…</span></div>
+        <div class="model-stats">
+          <div class="model-stat"><span>Parameters</span><span id="sbParams">—</span></div>
+          <div class="model-stat"><span>Layers</span>    <span id="sbLayers">—</span></div>
+          <div class="model-stat"><span>Heads</span>     <span id="sbHeads">—</span></div>
+          <div class="model-stat"><span>d_model</span>   <span id="sbDModel">—</span></div>
+          <div class="model-stat"><span>Vocab</span>     <span id="sbVocab">—</span></div>
+          <div class="model-stat"><span>Device</span>    <span id="sbDevice">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Generation Params -->
+    <div class="sidebar-section">
+      <h4>Generation Params</h4>
+      <div class="param-group">
+
+        <div class="param">
+          <label>Max New Tokens <span id="vMaxTok">100</span></label>
+          <input type="range" id="pMaxTok" min="10" max="512" value="100"
+                 oninput="document.getElementById('vMaxTok').textContent=this.value" />
+        </div>
+
+        <div class="param">
+          <label>Temperature <span id="vTemp">0.80</span></label>
+          <input type="range" id="pTemp" min="0.01" max="2.00" step="0.01" value="0.80"
+                 oninput="document.getElementById('vTemp').textContent=parseFloat(this.value).toFixed(2)" />
+        </div>
+
+        <div class="param">
+          <label>Top-K <span id="vTopK">40</span></label>
+          <input type="range" id="pTopK" min="0" max="200" value="40"
+                 oninput="document.getElementById('vTopK').textContent=this.value" />
+        </div>
+
+        <div class="param">
+          <label>Top-P <span id="vTopP">0.95</span></label>
+          <input type="range" id="pTopP" min="0.50" max="1.00" step="0.01" value="0.95"
+                 oninput="document.getElementById('vTopP').textContent=parseFloat(this.value).toFixed(2)" />
+        </div>
+
+        <div class="param">
+          <label>Repetition Penalty <span id="vRep">1.10</span></label>
+          <input type="range" id="pRep" min="1.00" max="2.00" step="0.01" value="1.10"
+                 oninput="document.getElementById('vRep').textContent=parseFloat(this.value).toFixed(2)" />
+        </div>
+
+        <div class="param">
+          <label for="pSampling" style="justify-content:flex-start;gap:6px;">
+            <input type="checkbox" id="pSampling" checked style="accent-color:var(--primary)" />
+            Sampling (uncheck = Greedy)
+          </label>
+        </div>
+
+        <div class="param">
+          <label>System Prompt</label>
+          <textarea class="param-input" id="pSystem" rows="3"
+                    placeholder="You are Emily, a helpful AI assistant.">You are Emily, a helpful AI assistant.</textarea>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /sidebar -->
+
+  <!-- ── CHAT PANEL ────────────────────────────────────────── -->
+  <div class="panel chat-panel" id="panel-chat">
+
+    <div class="chat-messages" id="chatMessages">
+      <!-- Welcome message -->
+      <div class="msg emily">
+        <div class="avatar emily">🧠</div>
+        <div class="bubble">
+          <div>Hello! I'm <strong>Emily</strong> — a custom language model trained from scratch in PyTorch.<br><br>
+          Ask me anything or explore the <strong>Generate</strong>, <strong>Tokenize</strong> and <strong>Model Info</strong> tabs above. 🚀</div>
+          <div class="time" id="welcomeTime"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-input-bar">
+      <div class="chat-actions">
+        <button class="action-btn" onclick="clearChat()" title="Clear chat">🗑 Clear</button>
+        <button class="action-btn" onclick="exportChat()" title="Export">📤 Export</button>
+      </div>
+      <div class="chat-input-wrap">
+        <textarea id="chatInput" placeholder="Message Emily… (Enter to send, Shift+Enter for new line)"
+                  rows="1" oninput="autoResize(this)" onkeydown="chatKeydown(event)"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendChat()" title="Send">▶</button>
+      </div>
+    </div>
+
+  </div><!-- /chat-panel -->
+
+  <!-- ── GENERATE PANEL ─────────────────────────────────────── -->
+  <div class="panel hidden" id="panel-generate">
+    <div class="generate-panel">
+      <div class="gen-box">
+        <div class="gen-box-header">📝 Prompt</div>
+        <div class="gen-box-body">
+          <textarea class="gen-textarea" id="genPrompt"
+                    placeholder="Enter your prompt here…&#10;&#10;Example: The transformer architecture works by">The transformer architecture works by</textarea>
+        </div>
+      </div>
+
+      <div class="gen-box">
+        <div class="gen-box-header">✨ Output <span class="tag blue" id="genStatus" style="margin-left:auto">Ready</span></div>
+        <div class="gen-box-body">
+          <div class="gen-output" id="genOutput">
+            <span style="color:var(--text3)">Output will appear here…</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="gen-footer">
+        <button class="btn-primary" id="genBtn" onclick="doGenerate()">⚡ Generate</button>
+        <button class="action-btn" onclick="document.getElementById('genOutput').innerHTML='<span style=color:var(--text3)>Output will appear here…</span>';document.getElementById('genStatus').textContent='Ready'">🗑 Clear Output</button>
+        <button class="action-btn" onclick="copyOutput()">📋 Copy</button>
+        <div class="gen-stats">
+          <div class="gen-stat">Tokens: <span id="statToks">—</span></div>
+          <div class="gen-stat">Time: <span id="statTime">—</span></div>
+          <div class="gen-stat">tok/s: <span id="statTPS">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /generate-panel -->
+
+  <!-- ── TOKENIZE PANEL ──────────────────────────────────────── -->
+  <div class="panel hidden" id="panel-tokenize">
+    <div class="tokenize-panel">
+      <div class="tok-input-row">
+        <input class="tok-input" id="tokInput" placeholder="Enter text to tokenize…" value="Emily is a language model built from scratch." />
+        <button class="btn-primary" onclick="doTokenize()" style="flex-shrink:0">🔤 Tokenize</button>
+      </div>
+
+      <div class="tok-grid">
+        <div class="tok-box">
+          <div class="gen-box-header">Token Pieces <span id="tokCount" class="tag blue" style="margin-left:auto">0 tokens</span></div>
+          <div class="tok-tokens" id="tokPieces">
+            <span style="color:var(--text3);font-size:13px">Results appear here…</span>
+          </div>
+        </div>
+        <div class="tok-box">
+          <div class="gen-box-header">Token IDs</div>
+          <div class="tok-ids-scroll">
+            <div class="tok-ids-text" id="tokIds">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /tokenize-panel -->
+
+  <!-- ── INFO PANEL ──────────────────────────────────────────── -->
+  <div class="panel hidden" id="panel-info">
+    <div class="info-panel">
+      <div class="info-section-title">📊 Model Overview</div>
+      <div class="info-grid" id="infoCards">
+        <div class="info-card"><div class="card-icon">⏳</div><div class="card-label">Status</div><div class="card-value" style="font-size:16px">Loading…</div></div>
+      </div>
+
+      <div class="info-section-title">🔧 Architecture Details</div>
+      <table class="info-table" id="infoTable">
+        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+        <tbody><tr><td colspan="2" style="color:var(--text3)">Loading…</td></tr></tbody>
+      </table>
+
+      <div class="info-section-title">🚀 API Endpoints</div>
+      <table class="info-table">
+        <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag green">GET</span></td> <td>/health</td>         <td>Server health</td></tr>
+          <tr><td><span class="tag green">GET</span></td> <td>/v1/model</td>        <td>Model metadata</td></tr>
+          <tr><td><span class="tag purple">POST</span></td><td>/v1/generate</td>    <td>Text generation</td></tr>
+          <tr><td><span class="tag purple">POST</span></td><td>/v1/generate/stream</td><td>SSE streaming</td></tr>
+          <tr><td><span class="tag purple">POST</span></td><td>/v1/chat</td>        <td>Chat completion</td></tr>
+          <tr><td><span class="tag purple">POST</span></td><td>/v1/tokenize</td>    <td>Text tokenisation</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div><!-- /info-panel -->
+
+</div><!-- /workspace -->
+
+<div id="toast"></div>
+
+<script>
+const API = 'http://localhost:8001';
+let chatHistory = [];
+let modelInfo = null;
+
+// ── Helpers ──────────────────────────────────────────────────
+function getParams() {
+  return {
+    max_new_tokens:     parseInt(document.getElementById('pMaxTok').value),
+    temperature:        parseFloat(document.getElementById('pTemp').value),
+    top_k:              parseInt(document.getElementById('pTopK').value),
+    top_p:              parseFloat(document.getElementById('pTopP').value),
+    repetition_penalty: parseFloat(document.getElementById('pRep').value),
+    do_sample:          document.getElementById('pSampling').checked,
+  };
+}
+
+function showToast(msg, dur = 2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+function now() {
+  return new Date().toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+}
+
+// ── Tab Switching ─────────────────────────────────────────────
+function switchTab(name) {
+  ['chat','generate','tokenize','info'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', t === name);
+    document.getElementById('panel-' + t).classList.toggle('hidden', t !== name);
+  });
+}
+
+// ── Health / Status ───────────────────────────────────────────
+async function checkHealth() {
+  const dot  = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  try {
+    const r = await fetch(API + '/health');
+    if (r.ok) {
+      dot.className  = 'status-dot online';
+      text.textContent = 'Online';
+      showToast('✅ Emily SLM is online');
+    } else {
+      throw new Error('not ok');
+    }
+  } catch {
+    dot.className  = 'status-dot error';
+    text.textContent = 'Offline';
+    showToast('❌ Cannot reach Emily SLM at ' + API);
+  }
+}
+
+async function loadModelInfo() {
+  try {
+    const r = await fetch(API + '/v1/model');
+    if (!r.ok) return;
+    modelInfo = await r.json();
+    const m = modelInfo;
+
+    // Sidebar
+    document.getElementById('sbModelName').textContent = m.name || 'emily-tiny';
+    document.getElementById('sbParams').textContent  = m.parameters  || '—';
+    document.getElementById('sbLayers').textContent  = m.n_layers    || '—';
+    document.getElementById('sbHeads').textContent   = m.n_heads     || '—';
+    document.getElementById('sbDModel').textContent  = m.d_model     || '—';
+    document.getElementById('sbVocab').textContent   = m.vocab_size  || '—';
+    document.getElementById('sbDevice').textContent  = m.device      || 'cpu';
+
+    // Info panel cards
+    const cards = [
+      { icon:'🔢', label:'Parameters', value: m.parameters || '—', sub: 'Total weights' },
+      { icon:'📚', label:'Layers',     value: m.n_layers   || '—', sub: 'Transformer blocks' },
+      { icon:'👁', label:'Attn Heads', value: m.n_heads    || '—', sub: 'Query heads' },
+      { icon:'📐', label:'d_model',    value: m.d_model    || '—', sub: 'Hidden dimension' },
+      { icon:'📖', label:'Vocab Size', value: m.vocab_size || '—', sub: 'BPE tokens' },
+      { icon:'💻', label:'Device',     value: m.device     || 'cpu', sub: 'Compute device' },
+    ];
+    document.getElementById('infoCards').innerHTML = cards.map(c => `
+      <div class="info-card">
+        <div class="card-icon">${c.icon}</div>
+        <div class="card-label">${c.label}</div>
+        <div class="card-value">${c.value}</div>
+        <div class="card-sub">${c.sub}</div>
+      </div>`).join('');
+
+    // Info table
+    const rows = [
+      ['Model Name',       m.name || 'emily-tiny'],
+      ['Architecture',     'Decoder-only Transformer'],
+      ['Attention Type',   m.attention_type || 'standard'],
+      ['KV Heads',         m.n_kv_heads || m.n_heads || '—'],
+      ['FFN Dim (d_ff)',   m.d_ff || '—'],
+      ['Context Length',   m.context_length || '—'],
+      ['Positional Enc.',  'Rotary (RoPE)'],
+      ['Normalisation',    'RMSNorm (Pre-Norm)'],
+      ['Activation',       'SwiGLU'],
+      ['Weight Tying',     m.tie_embeddings ? 'Yes' : 'No'],
+      ['Dropout',          m.dropout ?? '—'],
+    ];
+    document.getElementById('infoTable').querySelector('tbody').innerHTML =
+      rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+
+  } catch { /* offline */ }
+}
+
+// ── Chat ──────────────────────────────────────────────────────
+function appendMsg(role, content) {
+  const el = document.createElement('div');
+  el.className = 'msg ' + role;
+  const isUser = role === 'user';
+  el.innerHTML = `
+    <div class="avatar ${role}">${isUser ? '👤' : '🧠'}</div>
+    <div class="bubble">
+      <div class="msg-content">${escHtml(content)}</div>
+      <div class="time">${now()}</div>
+    </div>`;
+  document.getElementById('chatMessages').appendChild(el);
+  el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  return el;
+}
+
+function appendTyping() {
+  const el = document.createElement('div');
+  el.className = 'msg emily'; el.id = 'typingMsg';
+  el.innerHTML = `
+    <div class="avatar emily">🧠</div>
+    <div class="bubble">
+      <div class="typing-indicator"><span></span><span></span><span></span></div>
+    </div>`;
+  document.getElementById('chatMessages').appendChild(el);
+  el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function removeTyping() {
+  const el = document.getElementById('typingMsg');
+  if (el) el.remove();
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>');
+}
+
+function chatKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+}
+
+async function sendChat() {
+  const inp = document.getElementById('chatInput');
+  const text = inp.value.trim();
+  if (!text) return;
+
+  inp.value = ''; inp.style.height = 'auto';
+  document.getElementById('sendBtn').disabled = true;
+
+  appendMsg('user', text);
+  chatHistory.push({ role: 'user', content: text });
+
+  const sys = document.getElementById('pSystem').value.trim();
+  const messages = sys
+    ? [{ role: 'system', content: sys }, ...chatHistory]
+    : [...chatHistory];
+
+  appendTyping();
+
+  try {
+    const resp = await fetch(API + '/v1/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, ...getParams() }),
+    });
+
+    removeTyping();
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      appendMsg('emily', '⚠️ Error: ' + (err.detail || resp.statusText));
+    } else {
+      const data = await resp.json();
+      const reply = data.text || data.generated_text || JSON.stringify(data);
+      appendMsg('emily', reply);
+      chatHistory.push({ role: 'assistant', content: reply });
+    }
+  } catch (e) {
+    removeTyping();
+    appendMsg('emily', '⚠️ Could not reach Emily SLM. Is the server running on port 8001?');
+  }
+
+  document.getElementById('sendBtn').disabled = false;
+  document.getElementById('chatInput').focus();
+}
+
+function clearChat() {
+  chatHistory = [];
+  const cm = document.getElementById('chatMessages');
+  cm.innerHTML = '';
+  appendMsg('emily', 'Chat cleared. Start a new conversation! 👋');
+}
+
+function exportChat() {
+  const text = chatHistory.map(m => `[${m.role.toUpperCase()}]: ${m.content}`).join('\n\n');
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'emily-chat-' + Date.now() + '.txt';
+  a.click();
+  showToast('💾 Chat exported');
+}
+
+// ── Generate ──────────────────────────────────────────────────
+async function doGenerate() {
+  const prompt = document.getElementById('genPrompt').value.trim();
+  if (!prompt) { showToast('Enter a prompt first'); return; }
+
+  const btn = document.getElementById('genBtn');
+  const out  = document.getElementById('genOutput');
+  const stat = document.getElementById('genStatus');
+
+  btn.disabled = true; btn.textContent = '⏳ Generating…';
+  stat.textContent = 'Generating…'; stat.className = 'tag purple';
+  out.innerHTML = `<span class="prompt-part">${escHtml(prompt)}</span>`;
+
+  const t0 = Date.now();
+  try {
+    const resp = await fetch(API + '/v1/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, ...getParams() }),
+    });
+    const data = await resp.json();
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+    const generated = (data.text || data.generated_text || '').slice(prompt.length);
+    const toks = data.tokens_generated || generated.split(' ').length;
+
+    out.innerHTML = `<span class="prompt-part">${escHtml(prompt)}</span><span class="gen-part">${escHtml(generated)}</span>`;
+    stat.textContent = 'Done'; stat.className = 'tag green';
+    document.getElementById('statToks').textContent = toks;
+    document.getElementById('statTime').textContent = elapsed + 's';
+    document.getElementById('statTPS').textContent  = (toks / elapsed).toFixed(1);
+  } catch (e) {
+    out.innerHTML = '<span style="color:var(--danger)">⚠️ Error: ' + e.message + '</span>';
+    stat.textContent = 'Error'; stat.className = 'tag';
+    stat.style.background = 'rgba(248,113,113,.15)'; stat.style.color = 'var(--danger)';
+  }
+
+  btn.disabled = false; btn.textContent = '⚡ Generate';
+}
+
+function copyOutput() {
+  const el = document.getElementById('genOutput');
+  navigator.clipboard.writeText(el.textContent).then(() => showToast('📋 Copied to clipboard'));
+}
+
+// ── Tokenize ──────────────────────────────────────────────────
+async function doTokenize() {
+  const text = document.getElementById('tokInput').value.trim();
+  if (!text) return;
+
+  try {
+    const resp = await fetch(API + '/v1/tokenize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    const data = await resp.json();
+    const ids    = data.token_ids  || data.ids    || [];
+    const tokens = data.tokens     || data.pieces || ids.map(String);
+
+    document.getElementById('tokCount').textContent = ids.length + ' tokens';
+    const colors = ['#7c6fef','#06b6d4','#f472b6','#34d399','#fbbf24'];
+    document.getElementById('tokPieces').innerHTML = tokens.length
+      ? tokens.map((t, i) => `<span class="token-chip" title="ID: ${ids[i]}" style="border-color:${colors[i%colors.length]}33;color:${colors[i%colors.length]}">${escHtml(t)}</span>`).join('')
+      : '<span style="color:var(--text3)">No tokens returned</span>';
+    document.getElementById('tokIds').textContent = ids.length ? ids.join(', ') : '—';
+  } catch (e) {
+    showToast('⚠️ Tokenize failed: ' + e.message);
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────
+document.getElementById('welcomeTime').textContent = now();
+
+// Auto-tokenize on Enter
+document.getElementById('tokInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doTokenize();
+});
+
+// Initial health + model load
+checkHealth().then(loadModelInfo);
+</script>
+</body>
+</html>

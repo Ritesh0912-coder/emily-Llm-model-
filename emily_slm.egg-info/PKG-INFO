@@ -1,0 +1,345 @@
+Metadata-Version: 2.4
+Name: emily-slm
+Version: 0.1.0
+Summary: Emily SLM — A production-quality GPT-style decoder-only transformer built from scratch in PyTorch
+Author: Emily AI Team
+License: MIT
+Keywords: language-model,transformer,nlp,pytorch,gpt,slm
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: torch>=2.2.0
+Requires-Dist: numpy>=1.26.0
+Requires-Dist: sentencepiece>=0.2.0
+Requires-Dist: tokenizers>=0.19.0
+Requires-Dist: datasets>=2.18.0
+Requires-Dist: transformers>=4.40.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: fastapi>=0.110.0
+Requires-Dist: uvicorn[standard]>=0.28.0
+Requires-Dist: gradio>=4.0.0
+Requires-Dist: tensorboard>=2.16.0
+Requires-Dist: wandb>=0.16.0
+Requires-Dist: tqdm>=4.66.0
+Requires-Dist: rich>=13.0.0
+Requires-Dist: click>=8.1.0
+Requires-Dist: httpx>=0.27.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: black>=24.0.0; extra == "dev"
+Requires-Dist: ruff>=0.3.0; extra == "dev"
+Requires-Dist: mypy>=1.9.0; extra == "dev"
+Requires-Dist: httpx>=0.27.0; extra == "dev"
+Provides-Extra: flash
+Requires-Dist: flash-attn>=2.5.0; extra == "flash"
+
+# 🧠 Emily SLM
+
+> A production-quality, GPT-style decoder-only Small Language Model built from scratch in PyTorch.
+
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.2+-red.svg)](https://pytorch.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+Emily SLM is a research-grade, open-source language model implementation featuring:
+
+- **Custom GPT-style decoder-only transformer** — implemented entirely in PyTorch, zero wrapper around existing models
+- **Rotary Position Embeddings (RoPE)** — state-of-the-art positional encoding
+- **SwiGLU feed-forward networks** — LLaMA-style gated activations
+- **RMSNorm** — efficient pre-normalization
+- **Grouped Query Attention (GQA)** — memory-efficient multi-head attention
+- **KV Cache** — fast autoregressive inference
+- **Flash Attention** — optional hardware-accelerated attention
+- **Custom BPE tokenizer** — trained from scratch with tool-calling special tokens
+- **Complete training pipeline** — gradient accumulation, mixed precision, checkpointing
+- **Full evaluation suite** — perplexity, BLEU, ROUGE, custom benchmarks
+- **REST API + Gradio UI** — production-ready serving
+
+---
+
+## 📐 Architecture Overview
+
+```
+Input IDs
+    │
+    ▼
+TokenEmbedding ──── (vocab_size → d_model, scaled by √d_model)
+    │
+    ▼ (if use_rope: no positional embedding added here; RoPE is applied inside attention)
+    │
+    ▼
+TransformerBlock × N
+  ├── RMSNorm (pre-norm)
+  ├── CausalSelfAttention (MHA or GQA + RoPE + KV Cache + Flash Attention)
+  ├── Residual
+  ├── RMSNorm (pre-norm)
+  ├── SwiGLU FFN
+  └── Residual
+    │
+    ▼
+RMSNorm (final)
+    │
+    ▼
+LM Head (d_model → vocab_size, weight-tied to embedding)
+    │
+    ▼
+Logits → Sampling (temperature / top-k / top-p / beam search)
+```
+
+---
+
+## 🚀 Quick Start
+
+### Installation
+
+```bash
+git clone https://github.com/your-org/emily-slm
+cd emily-slm
+pip install -e ".[dev]"
+```
+
+### Train a Tiny Model (for testing)
+
+```bash
+# Prepare dataset
+python scripts/prepare_data.py --input data/raw/corpus.txt --config configs/tiny.yaml
+
+# Train
+python scripts/train.py --config configs/tiny.yaml
+
+# Evaluate
+python scripts/evaluate.py --model checkpoints/emily-tiny/best --config configs/tiny.yaml
+
+# Chat
+emily-chat --model checkpoints/emily-tiny/best
+```
+
+### Python API
+
+```python
+from slm import EmilySLM, EmilyTokenizer
+from slm.config import EmilyConfig
+
+# Load config
+config = EmilyConfig.from_yaml("configs/tiny.yaml")
+
+# Build model
+model = EmilySLM(config.model)
+print(model)  # Shows parameter count and architecture
+
+# Tokenize
+tokenizer = EmilyTokenizer.load("checkpoints/emily-tiny/tokenizer.json")
+input_ids = tokenizer.encode("Hello, I am Emily!", add_special_tokens=True)
+
+# Generate
+import torch
+ids = torch.tensor([input_ids])
+output_ids = model.generate(ids, max_new_tokens=50, temperature=0.8, top_p=0.9)
+print(tokenizer.decode(output_ids[0].tolist()))
+
+# Streaming
+for token_id in model.generate(ids, max_new_tokens=100, stream=True):
+    print(tokenizer.decode([token_id]), end="", flush=True)
+```
+
+### REST API
+
+```bash
+uvicorn slm.api.app:app --host 0.0.0.0 --port 8000
+```
+
+```bash
+curl -X POST http://localhost:8000/v1/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello Emily!", "max_tokens": 100, "temperature": 0.8}'
+```
+
+### Gradio Demo
+
+```bash
+python slm/frontend/demo.py --model checkpoints/emily-tiny/best
+```
+
+---
+
+## 📁 Directory Structure
+
+```
+Emily-SLM/
+├── configs/                    # Model & training configurations (YAML)
+│   ├── tiny.yaml               # 2L/4H/128D — for testing (~1M params)
+│   ├── small.yaml              # 4L/8H/256D — trainable on consumer GPU (~10M)
+│   ├── base.yaml               # 8L/8H/512D — baseline (~85M params)
+│   ├── medium.yaml             # 12L/12H/768D — GPT-2 scale (~117M params)
+│   └── large.yaml              # 24L/16H/1024D — larger scale (~350M params)
+│
+├── datasets/                   # Data storage
+│   ├── raw/                    # Raw text files
+│   ├── processed/              # Cleaned & deduplicated
+│   └── tokenized/              # Tokenized binary files (train.bin, val.bin)
+│
+├── slm/                        # Core library
+│   ├── config.py               # ModelConfig, TrainingConfig, EmilyConfig
+│   ├── model/                  # Model implementation
+│   │   ├── model.py            # EmilySLM — full model
+│   │   └── layers/             # Individual layer implementations
+│   │       ├── attention.py    # CausalSelfAttention, GQA, KVCache
+│   │       ├── embedding.py    # TokenEmbedding, PositionalEmbedding
+│   │       ├── mlp.py          # SwiGLU, GeLUMLP
+│   │       ├── rmsnorm.py      # RMSNorm
+│   │       ├── rotary.py       # RotaryEmbedding, apply_rotary_emb
+│   │       └── transformer.py  # TransformerBlock
+│   ├── tokenizer/              # BPE tokenizer
+│   │   ├── tokenizer.py        # EmilyTokenizer
+│   │   ├── special_tokens.py   # SpecialTokens dataclass
+│   │   └── chat_template.py    # ChatTemplate
+│   ├── training/               # Training pipeline
+│   │   ├── trainer.py          # EmilyTrainer
+│   │   ├── optimizer.py        # Optimizer & scheduler factory
+│   │   ├── callbacks.py        # Checkpoint, EarlyStopping, Logging callbacks
+│   │   └── data_loader.py      # Dataset & DataLoader utilities
+│   ├── dataset/                # Data pipeline
+│   │   ├── loader.py           # DatasetLoader (JSONL, HuggingFace, raw text)
+│   │   ├── preprocessor.py     # Cleaning, deduplication, normalization
+│   │   └── collator.py         # CausalLMCollator
+│   ├── evaluation/             # Evaluation & benchmarks
+│   │   ├── evaluator.py        # EmilyEvaluator
+│   │   └── benchmarks.py       # Benchmark suites
+│   ├── inference/              # Inference engine
+│   │   ├── engine.py           # EmilyInferenceEngine
+│   │   └── sampler.py          # Sampling utilities
+│   ├── api/                    # FastAPI REST server
+│   │   ├── app.py              # FastAPI application
+│   │   ├── routes/             # Route modules
+│   │   └── schemas.py          # Request/Response models
+│   ├── cli/                    # CLI entrypoints
+│   │   └── main.py             # Click CLI
+│   ├── frontend/               # Gradio demo
+│   │   └── demo.py
+│   └── utils/                  # Utilities
+│       ├── logging.py          # Logger setup
+│       ├── device.py           # Device detection, memory utils
+│       └── checkpoint.py       # Checkpoint save/load
+│
+├── scripts/                    # Runnable scripts
+│   ├── train.py                # Training entrypoint
+│   ├── evaluate.py             # Evaluation entrypoint
+│   ├── prepare_data.py         # Data preparation
+│   └── export.py               # ONNX / quantization export
+│
+├── tests/                      # pytest test suite
+│   ├── test_config.py
+│   ├── test_model.py
+│   ├── test_tokenizer.py
+│   ├── test_training.py
+│   ├── test_evaluation.py
+│   └── test_api.py
+│
+├── docs/                       # Documentation
+│   ├── architecture.md
+│   ├── training_guide.md
+│   ├── inference_guide.md
+│   ├── dataset_guide.md
+│   ├── configuration_guide.md
+│   └── deployment_guide.md
+│
+├── checkpoints/                # Saved model checkpoints (gitignored)
+├── logs/                       # TensorBoard & training logs (gitignored)
+├── examples/                   # Jupyter notebooks & usage examples
+├── pyproject.toml              # Project metadata & dependencies
+└── README.md                   # This file
+```
+
+---
+
+## ⚙️ Model Configurations
+
+| Config  | Layers | Heads | d_model | d_ff  | Vocab  | Context | Params   |
+|---------|--------|-------|---------|-------|--------|---------|----------|
+| tiny    | 2      | 4     | 128     | 512   | 4,096  | 256     | ~1M      |
+| small   | 4      | 8     | 256     | 1,024 | 16,384 | 512     | ~10M     |
+| base    | 8      | 8     | 512     | 2,048 | 32,000 | 1,024   | ~85M     |
+| medium  | 12     | 12    | 768     | 3,072 | 32,000 | 2,048   | ~117M    |
+| large   | 24     | 16    | 1,024   | 4,096 | 32,000 | 2,048   | ~350M    |
+
+---
+
+## 🔬 Features
+
+### Model
+- [x] Decoder-only transformer (GPT-style)
+- [x] Rotary Position Embeddings (RoPE)
+- [x] SwiGLU activation
+- [x] RMSNorm (pre-normalization)
+- [x] Causal self-attention with causal masking
+- [x] Grouped Query Attention (GQA)
+- [x] KV Cache for fast inference
+- [x] Flash Attention (via `F.scaled_dot_product_attention`)
+- [x] Weight tying (embedding ↔ LM head)
+- [x] Temperature / Top-K / Top-P sampling
+- [x] Beam search
+- [x] Streaming generation
+
+### Training
+- [x] Gradient accumulation
+- [x] Mixed precision (BF16/FP16)
+- [x] Gradient clipping
+- [x] Checkpoint save & resume
+- [x] Early stopping
+- [x] Cosine LR schedule with warmup
+- [x] AdamW optimizer
+- [x] TensorBoard logging
+- [x] Weights & Biases integration
+
+### Tokenizer
+- [x] BPE tokenizer trained from scratch
+- [x] Special tokens for chat & tool calling
+- [x] Streaming tokenization
+- [x] Chat template formatting
+
+### Future
+- [ ] Instruction tuning (SFT)
+- [ ] LoRA / QLoRA fine-tuning
+- [ ] RLHF
+- [ ] Vision encoder
+- [ ] Speech integration
+- [ ] Tool calling
+- [ ] RAG integration
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run with coverage
+pytest tests/ --cov=slm --cov-report=html
+
+# Run specific module
+pytest tests/test_model.py -v
+```
+
+---
+
+## 📄 License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+## 🙏 Acknowledgments
+
+Architecture inspired by:
+- [GPT-2](https://github.com/openai/gpt-2) — OpenAI
+- [LLaMA](https://github.com/meta-llama/llama) — Meta AI
+- [nanoGPT](https://github.com/karpathy/nanoGPT) — Andrej Karpathy
+- [Mistral](https://github.com/mistralai/mistral-src) — Mistral AI
