@@ -1,0 +1,54 @@
+# Emily SLM — Pro GPU Configuration (125M parameters)
+# Designed for high-performance GPU training on Colab
+
+model:
+  name: emily-pro
+  vocab_size: 16384          # Larger vocabulary for more expressive language
+  context_length: 1024       # Long context window for tracking conversation history
+  d_model: 768               # Hidden dimension
+  n_heads: 12                # More attention heads
+  n_kv_heads: 12             # Multi-head attention
+  n_layers: 12               # 12 layers deep
+  d_ff: 3072                 # Feed-forward network expansion
+  dropout: 0.1
+  attention_type: standard
+  tie_embeddings: true
+  use_rms_norm: true
+  use_swiglu: true
+  use_rope: true
+  rope_base: 10000
+  max_seq_len: 1024
+
+tokenizer:
+  model_type: bpe
+  vocab_size: 16384
+  model_path: checkpoints/emily-pro/tokenizer.json
+
+training:
+  batch_size: 8              # Managed batch size to fit inside 16GB T4 GPU VRAM
+  gradient_accumulation_steps: 8   # Effective batch size of 64
+  max_steps: 20000           # 20k steps for solid convergence
+  eval_interval: 1000
+  save_interval: 2000
+  log_interval: 100
+  learning_rate: 6.0e-4
+  min_lr: 6.0e-5
+  warmup_steps: 1000
+  weight_decay: 0.1
+  max_grad_norm: 1.0
+  optimizer: adamw
+  scheduler: cosine
+  use_amp: true              # ENABLE automatic mixed precision (crucial for GPU speed)
+  amp_dtype: float16         # standard float16 for Colab T4
+  seed: 42
+  compile: true              # Compile model for faster training on GPU
+  checkpoint_dir: checkpoints/emily-pro
+  log_dir: logs/emily-pro
+  wandb_enabled: false
+
+dataset:
+  train_path: datasets/tokenized/train.bin
+  val_path: datasets/tokenized/val.bin
+  max_seq_len: 1024
+  num_workers: 2             # Utilize Colab CPU cores for loading
+  pin_memory: true
